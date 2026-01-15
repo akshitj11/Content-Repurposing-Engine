@@ -1,0 +1,424 @@
+{
+  "name": "Advanced Content Repurposing Engine - Production",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "3512f245-077a-4f04-8dfb-091cbd90651d",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        256,
+        144
+      ],
+      "notes": "Input fields: content_title (required), content_text (required, multiline), target_audience (optional, default: general audience), manual_review (optional boolean, default: false)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "={{$credentials.anthropicApi}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 4000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Generate social media content for the following article. Return ONLY valid JSON with no markdown formatting, no code blocks, no explanations - just pure JSON that starts with { and ends with }.\\n\\nTitle: {{ $json.content_title }}\\nContent: {{ $json.content_text }}\\nAudience: {{ $json.target_audience }}\\n\\nGenerate this exact JSON structure:\\n{\\n  \\\"twitter\\\": {\\n    \\\"thread\\\": [\\\"tweet 1 text here\\\", \\\"tweet 2 text here\\\", \\\"tweet 3 text here\\\"],\\n    \\\"hook\\\": \\\"engaging opening line\\\"\\n  },\\n  \\\"linkedin\\\": {\\n    \\\"post\\\": \\\"full linkedin post text with line breaks for readability\\\",\\n    \\\"hashtags\\\": [\\\"#Marketing\\\", \\\"#ContentStrategy\\\", \\\"#SocialMedia\\\"]\\n  },\\n  \\\"email\\\": {\\n    \\\"subject\\\": \\\"compelling subject line under 50 characters\\\",\\n    \\\"preview\\\": \\\"preview text shown in email clients\\\",\\n    \\\"body\\\": \\\"<h1>Title</h1><p>Email body in HTML format with proper formatting</p><p>Include paragraphs and structure</p>\\\",\\n    \\\"cta_text\\\": \\\"Read Full Article\\\",\\n    \\\"cta_url\\\": \\\"https://yoursite.com/article\\\"\\n  },\\n  \\\"instagram\\\": {\\n    \\\"caption\\\": \\\"engaging instagram caption with strategic emoji use 🚀\\\",\\n    \\\"hashtags\\\": [\\\"#ContentCreation\\\", \\\"#DigitalMarketing\\\"]\\n  },\\n  \\\"summary\\\": \\\"Clear 2-3 sentence summary capturing the main point of the article\\\"\\n}\\n\\nRequirements:\\n- Twitter thread: 10-12 tweets, each MUST be under 280 characters, conversational tone with hooks\\n- LinkedIn post: Professional but engaging, under 1300 characters, use line breaks\\n- Email: Compelling subject under 50 chars, HTML formatted body, clear CTA\\n- Instagram: Casual and engaging, strategic emoji use (not excessive), under 2000 characters\\n- Summary: Clear and concise\\n\\nIMPORTANT: Return ONLY the JSON object. No explanations, no markdown, no code blocks. Just pure JSON.\"\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "5a20b992-6d38-4f44-9611-6a78fc963625",
+      "name": "HTTP Request - Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        528,
+        144
+      ],
+      "notes": "Single comprehensive call to Claude API to generate all social media content formats at once. Returns structured JSON with all platform content."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the response from Claude API\nconst response = $input.first().json;\n\n// Extract the text content from Claude's response structure\nlet content = response.content[0].text;\n\n// Remove any markdown code blocks if Claude added them despite instructions\ncontent = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '');\n\n// Remove any leading/trailing whitespace\ncontent = content.trim();\n\n// If content starts with explanatory text, try to extract just the JSON\nif (!content.startsWith('{')) {\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    content = jsonMatch[0];\n  }\n}\n\ntry {\n  // Parse the JSON\n  const parsed = JSON.parse(content);\n  \n  // Get original inputs from Manual Trigger\n  const manualTriggerData = $('Manual Trigger').first().json;\n  \n  // Return structured data\n  return [{\n    json: {\n      twitter: parsed.twitter,\n      linkedin: parsed.linkedin,\n      email: parsed.email,\n      instagram: parsed.instagram,\n      summary: parsed.summary,\n      generated_at: new Date().toISOString(),\n      original_title: manualTriggerData.content_title,\n      original_content: manualTriggerData.content_text,\n      manual_review: manualTriggerData.manual_review || false\n    }\n  }];\n  \n} catch (error) {\n  // If JSON parsing fails, return error info for debugging\n  return [{\n    json: {\n      error: true,\n      error_message: `JSON Parse Error: ${error.message}`,\n      raw_content: content.substring(0, 500),\n      generated_at: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "821e8932-54a9-4548-8461-fb24eff31f71",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        144
+      ],
+      "notes": "Parses Claude API JSON response, removes markdown formatting, and structures data for downstream nodes. Includes error handling for malformed responses."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-001",
+              "leftValue": "={{ $json.manual_review }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a8af50fb-1600-4444-a419-9a9cc150de8b",
+      "name": "IF - Manual Review Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        144
+      ],
+      "notes": "Checks if manual review is required. TRUE branch (output 0) stops for review. FALSE branch (output 1) continues to all posting nodes."
+    },
+    {
+      "parameters": {},
+      "id": "e1a055b8-0b15-4e1e-9593-0504fa495a53",
+      "name": "Stop and Notify - Review Required",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        -64
+      ],
+      "notes": "Stops workflow execution when manual review is enabled. Content is ready for review but NOT posted to any platforms."
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst tweets = data.twitter.thread;\n\n// Format tweets ensuring each is under 280 characters\nconst formattedTweets = tweets.map((tweet, index) => {\n  let formatted = tweet.trim();\n  \n  // Ensure under 280 characters\n  if (formatted.length > 280) {\n    formatted = formatted.substring(0, 277) + '...';\n  }\n  \n  return formatted;\n});\n\nreturn [{\n  json: {\n    tweets: formattedTweets,\n    first_tweet: formattedTweets[0],\n    thread_count: formattedTweets.length,\n    all_data: data\n  }\n}];"
+      },
+      "id": "a16a8054-4da3-4df5-8b48-f19d1f4f3e43",
+      "name": "Prepare Twitter Thread",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        48
+      ],
+      "notes": "Formats Twitter thread tweets, ensures character limits, and prepares first tweet for posting. Note: Full thread posting requires Twitter API v2 or loop logic."
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.first_tweet }}",
+        "additionalFields": {}
+      },
+      "id": "289b422b-d6e1-4b0e-b53f-6e1c4719ed34",
+      "name": "Twitter - Post Tweet",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        48
+      ],
+      "continueOnFail": true,
+      "notes": "Posts first tweet to Twitter. For full thread, consider using Twitter API v2 via HTTP Request or implementing loop logic."
+    },
+    {
+      "parameters": {
+        "subject": "={{ $json.email.subject }}",
+        "message": "={{ $json.email.body }}",
+        "options": {}
+      },
+      "id": "c153d5b4-8ee8-4770-839c-585e010bcfaa",
+      "name": "Gmail - Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        336
+      ],
+      "webhookId": "9c8c88fe-683b-4494-b090-bcc6fe7d85ac",
+      "continueOnFail": true,
+      "notes": "Sends formatted email newsletter to recipient. Uses HTML body from AI generation with subject and preview text."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Content Archive",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.generated_at }}",
+            "Title": "={{ $json.original_title }}",
+            "Summary": "={{ $json.summary }}",
+            "Twitter_First": "={{ $json.twitter.thread[0] }}",
+            "LinkedIn_Post": "={{ $json.linkedin.post }}",
+            "Email_Subject": "={{ $json.email.subject }}",
+            "Status": "Posted"
+          }
+        },
+        "options": {}
+      },
+      "id": "d722a494-8224-47ab-9c3f-9fb582622778",
+      "name": "Google Sheets - Archive Content",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        496
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Hfiqy6KkrW6eQrfG",
+          "name": "Google Sheets account"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Archives all generated content to Google Sheets for record-keeping and analytics. Appends new row with timestamp, content, and status."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Count successful posts\nconst platforms = [];\nlet errors = [];\n\nitems.forEach((item, index) => {\n  if (item.json.error) {\n    errors.push(`Error on platform ${index + 1}: ${item.json.error_message || 'Unknown error'}`);\n  } else {\n    // Determine platform from node data\n    if (item.json.tweets) platforms.push('Twitter');\n    else if (item.json.linkedin) platforms.push('LinkedIn');\n    else if (item.json.email) platforms.push('Email');\n    else if (item.json.original_title) platforms.push('Archive (Google Sheets)');\n    else platforms.push('Unknown Platform');\n  }\n});\n\nconst summary = `\n✅ CONTENT REPURPOSING COMPLETE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 Results:\n- Successfully posted to: ${platforms.length} platform(s)\n- Failed: ${errors.length}\n\n📱 Posted to:\n${platforms.map(p => `✓ ${p}`).join('\\n')}\n\n${errors.length > 0 ? `\\n❌ Errors:\\n${errors.join('\\n')}` : ''}\n\n⏰ Completed at: ${new Date().toLocaleString()}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;\n\nreturn [{\n  json: {\n    summary: summary,\n    successful_platforms: platforms,\n    error_count: errors.length,\n    errors: errors,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "af74d722-4ebc-4690-8399-68e628a9e937",
+      "name": "Format Success Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        304
+      ],
+      "notes": "Formats final summary with success/failure counts and platform status. Ready for notification or logging."
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.summary }}",
+        "additionalFields": {}
+      },
+      "id": "d4aff308-e675-4730-94e2-ed0c5427116b",
+      "name": "Telegram - Send Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2272,
+        304
+      ],
+      "webhookId": "75b86a29-d4c3-4969-bacb-f9b048f9fa8c",
+      "continueOnFail": true,
+      "notes": "Optional notification node. Sends completion summary to Telegram. Can be replaced with Slack, Email, or other notification services."
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        208
+      ],
+      "id": "d5cb5831-af96-48ea-8d57-978ef4c05e3b",
+      "name": "Create a post"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1776,
+        272
+      ],
+      "id": "1517b55f-f67b-4221-a685-cf4909406265",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Claude API": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "IF - Manual Review Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Manual Review Gate": {
+      "main": [
+        [
+          {
+            "node": "Stop and Notify - Review Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Twitter Thread",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail - Send Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Archive Content",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Twitter Thread": {
+      "main": [
+        [
+          {
+            "node": "Twitter - Post Tweet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twitter - Post Tweet": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Summary": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Email": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Archive Content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Create a post": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Format Success Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "7b82a75d-decb-4a32-90f4-9b14ff2eaaaa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "90d5b2d0c0fb32e63142923870c4a7d26da6feb67dc4cfedc526ec8364b6555b"
+  },
+  "id": "--OLcnGU3oGny41OeCSJi",
+  "tags": []
+}
