@@ -7,9 +7,6 @@
 
 > **Transform one long-form article into platform-optimized content for Twitter, LinkedIn, Instagram, and Email in seconds using Claude AI and n8n automation.**
 
-<p align="center">
-  <img src="https://via.placeholder.com/800x400/0f172a/ffffff?text=Content+Repurposing+Workflow" alt="Workflow Demo" />
-</p>
 
 ---
 
@@ -24,8 +21,8 @@
 - [Usage](#-usage)
 - [Cost Analysis](#-cost-analysis)
 - [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
+
+
 
 ---
 
@@ -162,9 +159,6 @@ Content creators spend hours adapting their articles for different social platfo
 
 4. **Done!** Workflow is now in your n8n instance
 
-### Option 2: Build from Scratch
-
-Follow the [Manual Setup Guide](docs/MANUAL_SETUP.md) to build node-by-node.
 
 ---
 
@@ -335,28 +329,8 @@ Convert to scheduled workflow:
 - [ ] Compliance checks
 - [ ] ROI reporting
 
-[See full roadmap](docs/ROADMAP.md)
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -370,7 +344,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/akshitj11">Your Name</a>
+  Made with ❤️ by <a href="https://github.com/akshitj11">Akshit Joshi</a>
 </p>
 
 <p align="center">
