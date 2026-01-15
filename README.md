@@ -7,6 +7,7 @@
 
 > **Transform one long-form article into platform-optimized content for Twitter, LinkedIn, Instagram, and Email in seconds using Claude AI and n8n automation.**
 
+<img width="1701" height="627" alt="Screenshot 2026-01-15 194855" src="https://github.com/user-attachments/assets/79f2b0b0-40ec-4aa0-8afa-e24854092a3e" />
 
 ---
 
